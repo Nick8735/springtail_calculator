@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job cost calculator</title>
+<style>
+:root{--bg:#eef2ee;--card:#fff;--ink:#1c2a22;--mute:#5b6b61;--line:#cdd8cf;--moss:#2f5d43;--leaf:#6fa57c;--amber:#e0a526;--warn:#b3402a;--field:#f7faf7}
+@media (prefers-color-scheme:dark){:root{--bg:#121a15;--card:#1b261f;--ink:#e6efe8;--mute:#9bb0a1;--line:#2f4036;--moss:#8fc79c;--leaf:#4e8a60;--amber:#e8b43a;--warn:#ef8a74;--field:#16201a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+header,main{max-width:1040px;margin:0 auto;padding:0 20px}
+header{padding-top:32px;padding-bottom:8px}
+h1{margin:0 0 4px;font-size:1.9rem;letter-spacing:-.01em}
+header p{margin:0;color:var(--mute);max-width:56ch}
+main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;padding-bottom:48px;align-items:start}
+@media(max-width:820px){main{grid-template-columns:1fr}}
+section,aside{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px}
+h2{font-size:1.05rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+label{display:block;font-size:.85rem;color:var(--mute)}
+input,select{width:100%;margin-top:4px;padding:9px 10px;font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+.hint{display:block;font-size:.75rem;color:var(--mute);margin-top:3px}
+details{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:600}
+details .grid{margin-top:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+button{font:inherit;padding:9px 14px;border-radius:6px;border:1px solid var(--moss);background:var(--moss);color:#fff;cursor:pointer}
+@media(prefers-color-scheme:dark){button{color:#0e1812}}
+button.ghost{background:transparent;color:var(--moss)}
+.result{position:sticky;top:16px;border-top:6px solid var(--amber)}
+@media(max-width:820px){.result{position:static}}
+.price{font-size:2.8rem;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.price small{display:block;font-size:.85rem;font-weight:400;color:var(--mute);letter-spacing:0}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.stats div{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.stats b{display:block;font-size:1.05rem}
+.stats span{font-size:.75rem;color:var(--mute)}
+.bars{margin:0;padding:0;list-style:none}
+.bars li{margin:8px 0;font-size:.85rem}
+.bars .t{display:flex;justify-content:space-between}
+.bars .b{height:6px;border-radius:3px;background:var(--line);margin-top:3px;overflow:hidden}
+.bars .b i{display:block;height:100%;background:var(--leaf)}
+.note{font-size:.85rem;margin:12px 0 0;padding:8px 10px;border-radius:6px;background:var(--field);border-left:4px solid var(--leaf)}
+.note.warn{border-left-color:var(--warn)}
+.fine{font-size:.75rem;color:var(--mute);margin-top:14px}
+</style>
+</head>
+<body>
+<header>
+<h1>Job cost calculator</h1>
+<p>Enter the job, see what it costs you to run, then set a price that earns the profit you want.</p>
+</header>
+<main>
+<section>
+<h2>The job</h2>
+<div class="grid">
+<label>Loaded miles<input id="j_loaded" type="number" min="0" step="1" value="120"></label>
+<label>Return miles (empty)<input id="j_return" type="number" min="0" step="1" value="120"><span class="hint">Use 0 if you have a return load.</span></label>
+<label>Average speed (mph)<input id="j_speed" type="number" min="1" step="1" value="45"></label>
+<label>Loading and unloading (minutes)<input id="j_handle" type="number" min="0" step="5" value="30"></label>
+<label>Extra waiting (minutes)<input id="j_wait" type="number" min="0" step="5" value="0"></label>
+<label>Extras: tolls, parking (£)<input id="j_extra" type="number" min="0" step="0.5" value="0"></label>
+<label>Load weight (kg)<input id="j_weight" type="number" min="0" step="10" value="200"></label>
+<label>Van<select id="j_van"><option value="a">Standard</option><option value="c">Temperature-controlled</option></select></label>
+<label>Timing<select id="j_time"><option value="s">Standard hours</option><option value="o">Out of hours or weekend</option></select></label>
+<label>Profit margin (% of price)<input id="j_margin" type="number" min="0" max="90" step="1" value="25"></label>
+</div>
+
+<details>
+<summary>Your costs and settings</summary>
+<div class="grid">
+<label>Fuel (£ per litre)<input id="s_fuel" type="number" min="0" step="0.01"></label>
+<label>MPG, standard van<input id="s_mpgA" type="number" min="1" step="1"></label>
+<label>MPG, temperature-controlled<input id="s_mpgC" type="number" min="1" step="1"></label>
+<label>Fridge unit fuel (litres per hour)<input id="s_unitL" type="number" min="0" step="0.1"></label>
+<label>Driver cost (£ per hour)<input id="s_driver" type="number" min="0" step="0.5"></label>
+<label>Van lease (£ per month)<input id="s_lease" type="number" min="0" step="10"></label>
+<label>Insurance (£ per month)<input id="s_ins" type="number" min="0" step="10"></label>
+<label>Maintenance and tyres (£ per month)<input id="s_maint" type="number" min="0" step="10"></label>
+<label>Tracking and software (£ per month)<input id="s_track" type="number" min="0" step="5"></label>
+<label>Fridge extras: lease and insurance (£ per month)<input id="s_chillX" type="number" min="0" step="10"></label>
+<label>Shared overheads (£ per month)<input id="s_over" type="number" min="0" step="10"><span class="hint">Accountancy, marketing, admin.</span></label>
+<label>Working days per month<input id="s_days" type="number" min="1" step="1"></label>
+<label>Paid hours per day<input id="s_hrs" type="number" min="1" step="1"></label>
+<label>Van utilisation (%)<input id="s_util" type="number" min="10" max="100" step="5"><span class="hint">Share of paid hours the van earns. Lower means each job carries more fixed cost.</span></label>
+<label>Payload, standard van (kg)<input id="s_payA" type="number" min="1" step="50"></label>
+<label>Payload, temperature-controlled (kg)<input id="s_payC" type="number" min="1" step="50"><span class="hint">Insulation and the fridge unit cut payload.</span></label>
+<label>Fuel economy lost per 100 kg (%)<input id="s_mpgLoss" type="number" min="0" step="0.1"><span class="hint">Applied to loaded miles only.</span></label>
+<label>Heavy-load surcharge starts at (kg)<input id="s_heavyKg" type="number" min="0" step="50"></label>
+<label>Heavy-load surcharge (£ per 100 kg above that)<input id="s_heavy" type="number" min="0" step="0.5"></label>
+<label>Out-of-hours uplift (%)<input id="s_ooh" type="number" min="0" step="5"></label>
+<label>Minimum charge (£)<input id="s_min" type="number" min="0" step="1"></label>
+</div>
+<div class="row"><button class="ghost" id="reset" type="button">Reset to default costs</button></div>
+<p class="fine">The defaults are planning estimates. Replace them with your real lease, insurance and fuel figures.</p>
+</details>
+</section>
+
+<aside class="result" aria-live="polite">
+<div class="price"><span id="o_price">£0</span><small>Suggested price, excluding VAT</small></div>
+<div class="stats">
+<div><b id="o_cost">£0</b><span>Your cost</span></div>
+<div><b id="o_profit">£0</b><span>Profit</span></div>
+<div><b id="o_pph">£0</b><span>Profit per hour</span></div>
+<div><b id="o_ppm">£0</b><span>Price per loaded mile</span></div>
+<div><b id="o_hours">0 h</b><span>Time on the job</span></div>
+<div><b id="o_marg">0%</b><span>Actual margin</span></div>
+<div><b id="o_load">0%</b><span>Payload used</span></div>
+<div><b id="o_pk">£0</b><span>Price per 100 kg</span></div>
+</div>
+<ul class="bars" id="o_bars"></ul>
+<p class="note" id="o_note"></p>
+<div class="row"><button id="copy" type="button">Copy quote text</button></div>
+<p class="fine" id="o_copied"></p>
+</aside>
+</main>
+
+<script>
+(function(){
+var D={fuel:1.45,mpgA:32,mpgC:28,unitL:1.0,driver:15,lease:600,ins:400,maint:170,track:60,chillX:250,over:500,days:21,hrs:8,util:70,ooh:35,min:35,payA:1000,payC:800,mpgLoss:1.5,heavyKg:500,heavy:3};
+var KEY="jobcost-settings-v1";
+var $=function(id){return document.getElementById(id)};
+var gbp=new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:2});
+var gbp0=new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:0});
+function n(id){var v=parseFloat($(id).value);return isFinite(v)&&v>=0?v:0}
+
+function loadSettings(){
+  var s={};
+  try{var raw=localStorage.getItem(KEY);if(raw)s=JSON.parse(raw)||{}}catch(e){}
+  Object.keys(D).forEach(function(k){$("s_"+k).value=(s[k]!==undefined?s[k]:D[k])});
+}
+function saveSettings(){
+  var s={};Object.keys(D).forEach(function(k){s[k]=n("s_"+k)});
+  try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}
+}
+
+var last="";
+function calc(){
+  var loaded=n("j_loaded"),ret=n("j_return"),speed=Math.max(n("j_speed"),1);
+  var chilled=$("j_van").value==="c",ooh=$("j_time").value==="o";
+  var margin=Math.min(n("j_margin"),90)/100;
+  var miles=loaded+ret;
+  var hours=miles/speed+(n("j_handle")+n("j_wait"))/60;
+  var mpg=Math.max(chilled?n("s_mpgC"):n("s_mpgA"),1);
+  var weight=n("j_weight");
+  var wf=1-Math.min(weight/100*n("s_mpgLoss")/100,0.4);
+  var fuelCost=(loaded/(mpg*wf)+ret/mpg)*4.546*n("s_fuel");
+  var fridgeFuel=chilled?hours*n("s_unitL")*n("s_fuel"):0;
+  var driver=hours*n("s_driver");
+  var usable=Math.max(n("s_days")*n("s_hrs")*(Math.max(n("s_util"),1)/100),1);
+  var vanMonthly=n("s_lease")+n("s_ins")+n("s_maint")+n("s_track");
+  var van=hours*vanMonthly/usable;
+  var fridgeFixed=chilled?hours*n("s_chillX")/usable:0;
+  var over=hours*n("s_over")/usable;
+  var extras=n("j_extra");
+
+  var parts=[
+    ["Fuel",fuelCost],["Driver",driver],["Van lease, insurance, upkeep",van],["Shared overheads",over]
+  ];
+  if(chilled){parts.push(["Fridge unit fuel",fridgeFuel]);parts.push(["Fridge lease and insurance",fridgeFixed])}
+  if(extras>0)parts.push(["Tolls and extras",extras]);
+
+  var cost=parts.reduce(function(a,p){return a+p[1]},0);
+  var price=cost/(1-margin);
+  if(ooh)price*=1+n("s_ooh")/100;
+  var heavyFee=Math.max(weight-n("s_heavyKg"),0)/100*n("s_heavy");
+  price+=heavyFee;
+  var minApplied=false;
+  if(price<n("s_min")){price=n("s_min");minApplied=true}
+  price=Math.ceil(price);
+  var profit=price-cost;
+  var pph=hours>0?profit/hours:0;
+  var ppm=loaded>0?price/loaded:0;
+  var actual=price>0?profit/price*100:0;
+
+  $("o_price").textContent=gbp0.format(price);
+  $("o_cost").textContent=gbp.format(cost);
+  $("o_profit").textContent=gbp.format(profit);
+  $("o_pph").textContent=gbp.format(pph);
+  $("o_ppm").textContent=loaded>0?gbp.format(ppm):"n/a";
+  $("o_hours").textContent=hours.toFixed(1)+" h";
+  $("o_marg").textContent=actual.toFixed(0)+"%";
+  var payload=Math.max(chilled?n("s_payC"):n("s_payA"),1);
+  $("o_load").textContent=Math.round(weight/payload*100)+"%";
+  $("o_pk").textContent=weight>0?gbp.format(price/weight*100):"n/a";
+
+  var bars=$("o_bars");bars.innerHTML="";
+  parts.forEach(function(p){
+    var pct=cost>0?p[1]/cost*100:0;
+    var li=document.createElement("li");
+    li.innerHTML='<div class="t"><span></span><span></span></div><div class="b"><i></i></div>';
+    li.querySelector(".t span").textContent=p[0];
+    li.querySelectorAll(".t span")[1].textContent=gbp.format(p[1]);
+    li.querySelector("i").style.width=Math.min(pct,100)+"%";
+    bars.appendChild(li);
+  });
+
+  var note=$("o_note"),msg="",warn=false;
+  if(weight>payload){msg="This load is over the van’s payload. Split it or use a bigger vehicle.";warn=true}
+  else if(minApplied){msg="The minimum charge applies to this job."}
+  else if(profit<0){msg="This job loses money at this price.";warn=true}
+  else if(pph<10){msg="Profit per hour is low. Consider a higher margin, a return load or a longer-distance minimum.";warn=true}
+  else if(ret>0&&loaded>0&&ret>=loaded){msg="You are driving back empty. A return load would raise your profit per hour a lot."}
+  else{msg="This price covers your costs and the margin you chose."}
+  if(heavyFee>0)msg+=" Includes a heavy-load surcharge of "+gbp.format(heavyFee)+".";
+  note.textContent=msg;note.className="note"+(warn?" warn":"");
+
+  last="Quote: "+gbp0.format(price)+" + VAT. "+Math.round(loaded)+" loaded miles, "+Math.round(weight)+" kg"+(chilled?", temperature-controlled":"")+(ooh?", out of hours":"")+". Estimated time "+hours.toFixed(1)+" hours.";
+}
+
+document.addEventListener("input",function(e){
+  if(e.target.id&&e.target.id.indexOf("s_")===0)saveSettings();
+  calc();
+});
+$("reset").addEventListener("click",function(){
+  Object.keys(D).forEach(function(k){$("s_"+k).value=D[k]});
+  saveSettings();calc();
+});
+$("copy").addEventListener("click",function(){
+  var out=$("o_copied");
+  function done(m){out.textContent=m}
+  try{
+    navigator.clipboard.writeText(last).then(function(){done("Copied: "+last)},function(){done(last)});
+  }catch(e){done(last)}
+});
+loadSettings();calc();
+})();
+</script>
+</body>
+</html>
